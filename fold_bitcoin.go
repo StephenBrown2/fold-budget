@@ -113,9 +113,11 @@ func (record FoldBitcoin) ToCoinLedger() CoinLedger {
 
 	var txType CoinLedgerType
 	switch record.TransactionType {
-	case "Deposit", "Purchase":
+	case "Purchase", "Sale":
+		txType = CoinLedgerTrade
+	case "Deposit":
 		txType = CoinLedgerDeposit
-	case "Withdrawal", "Sale":
+	case "Withdrawal":
 		txType = CoinLedgerWithdrawal
 		sent = record.AmountBTC
 		received = record.SubtotalUSD.float64
