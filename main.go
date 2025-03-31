@@ -8,51 +8,44 @@ import (
 	"io"
 	"log"
 	"os"
-	"time"
 
 	"github.com/jszwec/csvutil"
 )
 
 var (
 	dryRun    bool
-	isBitcoin bool
+	since     dateValue
+	inFormat  inputFormat
+	outFormat outputFormat
 )
 
 func init() {
 	flag.BoolVar(&dryRun, "dry-run", false, "Dry run, don't write to file")
-	flag.BoolVar(&isBitcoin, "bitcoin", false, "Bitcoin account")
-	flag.Parse()
-}
+	flag.Var(&inFormat, "from", "Input format (bitcoin or checking, default: checking)")
+	flag.Var(&outFormat, "to", "Output format (one of: ynab, lunchmoney, coinledger)")
+	flag.Var(&since, "since", "Include transactions since this date")
 
-func getFilename(data []YNAB, isBitcoin bool) string {
-	oldestDate := time.Now().Add(time.Hour * 24 * 365)
-	newestDate := time.Time{}
-	// Iterate over the records to find the oldest and newest dates
-	for _, y := range data {
-		if y.Date.Time.Before(oldestDate) {
-			oldestDate = y.Date.Time
-		}
-		if y.Date.Time.After(newestDate) {
-			newestDate = y.Date.Time
-		}
+	flag.Usage = func() {
+		w := flag.CommandLine.Output()
+		fmt.Fprintf(w, "Usage: %s [flags] <csv-file>\n", os.Args[0])
+		flag.PrintDefaults()
 	}
-	if newestDate.IsZero() {
-		fmt.Println("Newest date is zero, using current date")
-		newestDate = time.Now()
+
+	flag.Parse()
+	if len(flag.Args()) < 1 {
+		fmt.Println("No CSV file specified.")
+		flag.Usage()
+		os.Exit(1)
 	}
-	if oldestDate.After(time.Now()) {
-		fmt.Println("Oldest date is not found, using current date")
-		oldestDate = time.Now()
+	if inFormat.String() == "" {
+		fmt.Println("Input format not specified, defaulting to checking.")
+		_ = inFormat.Set("checking")
 	}
-	outFileType := "checking"
-	if isBitcoin {
-		outFileType = "bitcoin"
+	if outFormat.String() == "" {
+		fmt.Println("Output format is required. Use -to flag to specify.")
+		flag.Usage()
+		os.Exit(1)
 	}
-	if oldestDate.Equal(newestDate) {
-		fmt.Println("Oldest and newest dates are the same, using only one date for filename")
-		return fmt.Sprintf("fold_%s_%s.csv", outFileType, oldestDate.Format(time.DateOnly))
-	}
-	return fmt.Sprintf("fold_%s_%s_%s.csv", outFileType, oldestDate.Format(time.DateOnly), newestDate.Format(time.DateOnly))
 }
 
 func main() {
@@ -70,9 +63,16 @@ func main() {
 	}
 	defer file.Close()
 
-	out := []YNAB{}
+	txns := []Transaction{}
+	ledger := []CoinLedger{}
 
-	if isBitcoin {
+	if inFormat.String() != "bitcoin" && outFormat.String() == "coinledger" {
+		fmt.Println("CoinLedger format is not supported for non-bitcoin accounts")
+		return
+	}
+
+	switch inFormat.String() {
+	case "bitcoin":
 		csvReader, csvHeader := skipToHeader(file, FoldBitcoin{})
 		dec, err := csvutil.NewDecoder(csvReader, csvHeader...)
 		if errors.Is(err, io.EOF) {
@@ -93,14 +93,19 @@ func main() {
 				continue
 			}
 
-			y, e := record.ToYNAB()
-			if e != nil {
-				fmt.Printf("Error converting to YNAB: %v\n", e)
+			if record.DateUTC.Before(since.Time) {
 				continue
 			}
-			out = append(out, y)
+
+			t, e := record.Transaction()
+			if e != nil {
+				fmt.Printf("Error converting to budget transaction: %v\n", e)
+				continue
+			}
+			txns = append(txns, t)
+			ledger = append(ledger, record.ToCoinLedger())
 		}
-	} else {
+	case "checking":
 		csvReader, csvHeader := skipToHeader(file, FoldCard{})
 		dec, err := csvutil.NewDecoder(csvReader, csvHeader...)
 		if errors.Is(err, io.EOF) {
@@ -121,36 +126,61 @@ func main() {
 				continue
 			}
 
+			if record.SettlementDate.Before(since.Time) {
+				continue
+			}
+
 			date := record.SettlementDate.Time.Local()
 			payee := record.Description
-			out = append(out, YNAB{
-				Date:   ynabDate{date},
+			txns = append(txns, Transaction{
+				Date:   date,
 				Payee:  payee,
 				Amount: record.Amount,
 			})
 		}
 	}
 
-	if !dryRun {
-		// Create a new CSV file to write the output
-		outFileName := getFilename(out, isBitcoin)
-		outFile, err := os.Create(outFileName)
-		if err != nil {
-			fmt.Println("Error creating file:", err)
-			return
-		}
-		defer outFile.Close()
-
-		// Write the records to the new CSV file using gocsv
-		b, err := csvutil.Marshal(out)
-		if err != nil {
-			fmt.Println("error:", err)
-		}
-		if _, err := outFile.Write(b); err != nil {
+	// Create a new CSV file to write the output
+	outFileName := getFilename(txns, inFormat, outFormat)
+	switch outFormat.String() {
+	case "coinledger":
+		fmt.Println("Processing with CoinLedger format...")
+		if err := writeCSV(outFileName, ledger); err != nil {
 			fmt.Println("Error writing to file:", err)
 			return
 		}
+	case "lunchmoney":
+		outData := []LunchMoney{}
+		for _, t := range txns {
+			outData = append(outData, LunchMoney{
+				Date:       lmDate{t.Date},
+				Payee:      t.Payee,
+				Notes:      t.Memo,
+				Amount:     t.Amount,
+				Categories: t.Categories,
+				Tags:       t.Tags,
+			})
+		}
 
-		fmt.Printf("\nOutput written to %s\n", outFileName)
+		fmt.Println("Processing with Lunch Money format...")
+		if err := writeCSV(outFileName, outData); err != nil {
+			fmt.Println("Error writing to file:", err)
+			return
+		}
+	case "ynab":
+		outData := []YNAB{}
+		for _, t := range txns {
+			outData = append(outData, YNAB{
+				Date:   ynabDate{t.Date},
+				Payee:  t.Payee,
+				Memo:   t.Memo,
+				Amount: t.Amount,
+			})
+		}
+		fmt.Println("Processing with YNAB format...")
+		if err := writeCSV(outFileName, outData); err != nil {
+			fmt.Printf("Error writing to file: %v\n", err)
+			return
+		}
 	}
 }

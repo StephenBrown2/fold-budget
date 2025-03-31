@@ -52,7 +52,19 @@ func (d *foldUTC) String() string {
 	return d.Time.Format(time.RFC3339)
 }
 
-func (record FoldBitcoin) ToYNAB() (YNAB, error) {
+func (record FoldBitcoin) PricePerCoin() (float64, error) {
+	price := record.PricePerCoinUSD.float64
+	if price == 0 {
+		var priceErr error
+		price, priceErr = getHistoricalPrice(record.DateUTC.Time)
+		if priceErr != nil {
+			return 0, fmt.Errorf("error getting historical price: %w", priceErr)
+		}
+	}
+	return price, nil
+}
+
+func (record FoldBitcoin) Transaction() (Transaction, error) {
 	date := record.DateUTC.Time.Local()
 
 	payee := record.Description
@@ -70,13 +82,11 @@ func (record FoldBitcoin) ToYNAB() (YNAB, error) {
 	}
 
 	amount := record.SubtotalUSD.float64 * -1
-	price := record.PricePerCoinUSD.float64
+	price, priceErr := record.PricePerCoin()
+	if priceErr != nil {
+		return Transaction{}, fmt.Errorf("error getting historical price: %w", priceErr)
+	}
 	if record.TotalUSD.float64 == 0 {
-		var priceErr error
-		price, priceErr = getHistoricalPrice(record.DateUTC.Time)
-		if priceErr != nil {
-			return YNAB{}, fmt.Errorf("Error getting historical price: %w", priceErr)
-		}
 		amount = math.Round(record.AmountBTC*price*100) / 100
 	}
 
@@ -87,10 +97,65 @@ func (record FoldBitcoin) ToYNAB() (YNAB, error) {
 	}
 	memo.WriteString(fmt.Sprintf(" @ %s", date.Format(time.RFC822)))
 
-	return YNAB{
-		Date:   ynabDate{date},
+	return Transaction{
+		Date:   date,
 		Payee:  payee,
 		Memo:   memo.String(),
 		Amount: amount,
 	}, nil
+}
+
+func (record FoldBitcoin) ToCoinLedger() CoinLedger {
+	sent := record.SubtotalUSD.float64
+	received := record.AmountBTC
+	assetSent := "USD"
+	assetReceived := "BTC"
+
+	var txType CoinLedgerType
+	switch record.TransactionType {
+	case "Deposit", "Purchase":
+		txType = CoinLedgerDeposit
+	case "Withdrawal", "Sale":
+		txType = CoinLedgerWithdrawal
+		sent = record.AmountBTC
+		received = record.SubtotalUSD.float64
+		assetSent = "BTC"
+		assetReceived = "USD"
+	default:
+		fmt.Println("Unknown transaction type:", record.TransactionType)
+		if record.AmountBTC > 0 {
+			fmt.Println("Assuming deposit for positive BTC amount")
+			txType = CoinLedgerDeposit
+		} else {
+			fmt.Println("Assuming withdrawal for negative BTC amount")
+			txType = CoinLedgerWithdrawal
+		}
+	}
+
+	price, priceErr := record.PricePerCoin()
+	if priceErr != nil {
+		fmt.Printf("error getting historical BTC price: %s\n", priceErr)
+	}
+
+	var amountReceived string
+	switch assetReceived {
+	case "BTC":
+		amountReceived = fmt.Sprintf("%0.8f", received)
+	case "USD":
+		amountReceived = fmt.Sprintf("%0.2f", received)
+	}
+
+	return CoinLedger{
+		DateUTC:        clUTC{record.DateUTC.Time},
+		Platform:       "Fold",
+		AssetSent:      assetSent,
+		AmountSent:     sent,
+		AssetReceived:  assetReceived,
+		AmountReceived: amountReceived,
+		FeeCurrency:    "USD",
+		FeeAmount:      record.FeeUSD.float64,
+		Type:           txType,
+		Description:    fmt.Sprintf("%s, FX rate: %.2f", record.Description, price),
+		TxHash:         record.TransactionID,
+	}
 }
