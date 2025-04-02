@@ -17,7 +17,7 @@ supported:
 To install, make sure you have [Go](https://go.dev/dl/) installed, then run:
 
 ```sh
-go install https://github.com/StephenBrown2/fold-budget@latest
+go install github.com/StephenBrown2/fold-budget@latest
 ```
 
 Then, you should be able to run it:
