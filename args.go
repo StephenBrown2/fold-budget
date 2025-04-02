@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -23,32 +24,35 @@ func (d *dateValue) Set(value string) error {
 	return nil
 }
 
-type inputFormat string
-
-func (i *inputFormat) String() string {
-	return string(*i)
+type enumFlag struct {
+	Allowed []string
+	Value   string
 }
 
-func (i *inputFormat) Set(value string) error {
-	valid := []string{"bitcoin", "checking", "card"}
-	if slices.Contains(valid, value) {
-		*i = inputFormat(value)
-		return nil
+// newEnumFlag give a list of allowed flag parameters, where the second argument is the default.
+func newEnumFlag(allowed []string, d string) *enumFlag {
+	return &enumFlag{
+		Allowed: allowed,
+		Value:   d,
 	}
-	return fmt.Errorf("invalid input format: %q, must be one of: %q", value, valid)
 }
 
-type outputFormat string
-
-func (o *outputFormat) String() string {
-	return string(*o)
+func (e enumFlag) String() string {
+	return e.Value
 }
 
-func (o *outputFormat) Set(value string) error {
-	valid := []string{"ynab", "lunchmoney", "coinledger", "cointracker", "koinly"}
-	if slices.Contains(valid, value) {
-		*o = outputFormat(value)
-		return nil
+func (e *enumFlag) Set(p string) error {
+	if !slices.Contains(e.Allowed, p) {
+		return fmt.Errorf("must be one of: %s", strings.Join(e.Allowed, ", "))
 	}
-	return fmt.Errorf("invalid output format: %q, must be one of: %q", value, valid)
+	e.Value = p
+	return nil
+}
+
+func (e *enumFlag) Usage(t string) string {
+	return fmt.Sprintf("%s (one of: %s)", t, strings.Join(e.Allowed, ", "))
+}
+
+func (e *enumFlag) Type() string {
+	return "string"
 }

@@ -14,7 +14,7 @@ type Transaction struct {
 	Tags       []string
 }
 
-func getFilename(oldestDate, newestDate time.Time, from inputFormat, to outputFormat) string {
+func getFilename(oldestDate, newestDate time.Time, from, to fmt.Stringer) string {
 	if newestDate.IsZero() {
 		fmt.Println("Newest date is zero, using current date")
 		newestDate = time.Now()

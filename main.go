@@ -9,30 +9,39 @@ import (
 	"log"
 	"os"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/jszwec/csvutil"
 )
 
 var (
-	dryRun     bool
-	since      dateValue
-	inFormat   inputFormat
-	outFormat  outputFormat
-	oldestDate time.Time
-	newestDate time.Time
+	dryRun        bool
+	since         dateValue
+	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "card"}, "checking")
+	budgetFormats = []string{"ynab", "lunchmoney"}
+	taxFormats    = []string{"coinledger", "cointracker", "koinly"}
+	outFormat     = newEnumFlag(slices.Concat(budgetFormats, taxFormats), "ynab")
+	oldestDate    time.Time
+	newestDate    time.Time
 )
 
 func init() {
 	flag.BoolVar(&dryRun, "dry-run", false, "Dry run, don't write to file")
-	flag.Var(&inFormat, "from", "Input format (bitcoin or checking, default: checking)")
-	flag.Var(&outFormat, "to", "Output format (one of: ynab, lunchmoney, coinledger, cointracker, koinly)")
+	flag.Var(inFormat, "from", inFormat.Usage("Input format"))
+	flag.Var(outFormat, "to", outFormat.Usage("Output format"))
 	flag.Var(&since, "since", "Include transactions since this date")
 
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
-		fmt.Fprintf(w, "Usage: %s [flags] <csv-file>\n", os.Args[0])
+		fmt.Fprintf(w, "\nUsage: %s [flags] <csv-file>\n", os.Args[0])
 		flag.PrintDefaults()
+		fmt.Fprintf(w, "\nNOTE:\n")
+		fmt.Fprintf(w, "  The \"card\" input format is an alias for \"checking\".\n\n")
+		fmt.Fprintf(w, "  The following output formats are available for all input formats:\n")
+		fmt.Fprintf(w, "\t%s\n\n", strings.Join(budgetFormats, ", "))
+		fmt.Fprintf(w, "  The following output formats are only available for bitcoin CSVs:\n")
+		fmt.Fprintf(w, "\t%s\n\n", strings.Join(taxFormats, ", "))
 	}
 
 	flag.Parse()
@@ -54,16 +63,12 @@ func init() {
 
 	if slices.Contains([]string{"coinledger", "cointracker", "koinly"}, outFormat.String()) && inFormat.String() != "bitcoin" {
 		fmt.Println("Tax Ledger format is not supported for non-bitcoin accounts")
-		return
+		os.Exit(1)
 	}
 }
 
 func main() {
 	// Get the CSV file from the first argument
-	if len(flag.Args()) < 1 {
-		fmt.Println("Please provide a CSV file.")
-		return
-	}
 	csvFile := flag.Arg(0)
 	// Open the CSV file
 	file, err := os.Open(csvFile)
