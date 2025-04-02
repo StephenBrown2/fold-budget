@@ -19,7 +19,7 @@ func skipToHeader(file *os.File, headerStruct any) (*csv.Reader, []string) {
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = len(csvHeader)
 
-	fmt.Printf("Checking for header:\n%q\n", csvHeader)
+	fmt.Printf("Checking for header: %q\n", csvHeader)
 	for {
 		record, readErr := reader.Read()
 		if readErr != nil {

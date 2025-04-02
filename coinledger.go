@@ -2,54 +2,54 @@ package main
 
 import "time"
 
-type CoinLedgerType string
+type CoinLedgerTag string
 
 const (
-	CoinLedgerAirdrop         CoinLedgerType = "Airdrop"
-	CoinLedgerCasualtyLoss    CoinLedgerType = "Casualty Loss"
-	CoinLedgerDeposit         CoinLedgerType = "Deposit"
-	CoinLedgerGiftReceived    CoinLedgerType = "Gift Received"
-	CoinLedgerGiftSent        CoinLedgerType = "Gift Sent"
-	CoinLedgerHardFork        CoinLedgerType = "Hard Fork"
-	CoinLedgerIncome          CoinLedgerType = "Income"
-	CoinLedgerInterest        CoinLedgerType = "Interest"
-	CoinLedgerInterestPayment CoinLedgerType = "Interest Payment"
-	CoinLedgerInvestmentLoss  CoinLedgerType = "Investment Loss"
-	CoinLedgerMerchantPayment CoinLedgerType = "Merchant Payment"
-	CoinLedgerMining          CoinLedgerType = "Mining"
-	CoinLedgerStaking         CoinLedgerType = "Staking"
-	CoinLedgerTheftLoss       CoinLedgerType = "Theft Loss"
-	CoinLedgerTrade           CoinLedgerType = "Trade"
-	CoinLedgerWithdrawal      CoinLedgerType = "Withdrawal"
+	CoinLedgerAirdrop         CoinLedgerTag = "Airdrop"
+	CoinLedgerCasualtyLoss    CoinLedgerTag = "Casualty Loss"
+	CoinLedgerDeposit         CoinLedgerTag = "Deposit"
+	CoinLedgerGiftReceived    CoinLedgerTag = "Gift Received"
+	CoinLedgerGiftSent        CoinLedgerTag = "Gift Sent"
+	CoinLedgerHardFork        CoinLedgerTag = "Hard Fork"
+	CoinLedgerIncome          CoinLedgerTag = "Income"
+	CoinLedgerInterest        CoinLedgerTag = "Interest"
+	CoinLedgerInterestPayment CoinLedgerTag = "Interest Payment"
+	CoinLedgerInvestmentLoss  CoinLedgerTag = "Investment Loss"
+	CoinLedgerMerchantPayment CoinLedgerTag = "Merchant Payment"
+	CoinLedgerMining          CoinLedgerTag = "Mining"
+	CoinLedgerStaking         CoinLedgerTag = "Staking"
+	CoinLedgerTheftLoss       CoinLedgerTag = "Theft Loss"
+	CoinLedgerTrade           CoinLedgerTag = "Trade"
+	CoinLedgerWithdrawal      CoinLedgerTag = "Withdrawal"
 )
 
 type CoinLedger struct {
-	DateUTC        clUTC          `csv:"Date (UTC)"`
+	DateUTC        coinLedgerDate `csv:"Date (UTC)"`
 	Platform       string         `csv:"Platform (Optional),omitempty"`
 	AssetSent      string         `csv:"Asset Sent"`
-	AmountSent     float64        `csv:"Amount Sent"`
+	AmountSent     string         `csv:"Amount Sent"` // Note: this is a string to ensure proper formatting
 	AssetReceived  string         `csv:"Asset Received"`
 	AmountReceived string         `csv:"Amount Received"` // Note: this is a string to ensure proper formatting
 	FeeCurrency    string         `csv:"Fee Currency (Optional),omitempty"`
 	FeeAmount      float64        `csv:"Fee Amount (Optional),omitempty"`
-	Type           CoinLedgerType `csv:"Type"`
+	Type           CoinLedgerTag  `csv:"Type"`
 	Description    string         `csv:"Description (Optional),omitempty"`
 	TxHash         string         `csv:"TxHash (Optional),omitempty"`
 }
 
-type clUTC struct {
+type coinLedgerDate struct {
 	time.Time
 }
 
-func (d *clUTC) UnmarshalCSV(data []byte) (err error) {
+func (d *coinLedgerDate) UnmarshalCSV(data []byte) (err error) {
 	d.Time, err = time.Parse("01-02-2006 15:04:05", string(data))
 	return err
 }
 
-func (d *clUTC) MarshalCSV() ([]byte, error) {
+func (d *coinLedgerDate) MarshalCSV() ([]byte, error) {
 	return []byte(d.Time.Format("01-02-2006 15:04:05")), nil
 }
 
-func (d *clUTC) String() string {
+func (d *coinLedgerDate) String() string {
 	return d.Time.Format("01-02-2006 15:04:05")
 }

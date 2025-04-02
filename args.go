@@ -30,7 +30,7 @@ func (i *inputFormat) String() string {
 }
 
 func (i *inputFormat) Set(value string) error {
-	valid := []string{"bitcoin", "checking"}
+	valid := []string{"bitcoin", "checking", "card"}
 	if slices.Contains(valid, value) {
 		*i = inputFormat(value)
 		return nil
@@ -45,7 +45,7 @@ func (o *outputFormat) String() string {
 }
 
 func (o *outputFormat) Set(value string) error {
-	valid := []string{"ynab", "lunchmoney", "coinledger"}
+	valid := []string{"ynab", "lunchmoney", "coinledger", "cointracker", "koinly"}
 	if slices.Contains(valid, value) {
 		*o = outputFormat(value)
 		return nil

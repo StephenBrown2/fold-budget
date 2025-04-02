@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"os"
+	"slices"
 
 	"github.com/jszwec/csvutil"
 )
@@ -22,7 +23,7 @@ var (
 func init() {
 	flag.BoolVar(&dryRun, "dry-run", false, "Dry run, don't write to file")
 	flag.Var(&inFormat, "from", "Input format (bitcoin or checking, default: checking)")
-	flag.Var(&outFormat, "to", "Output format (one of: ynab, lunchmoney, coinledger)")
+	flag.Var(&outFormat, "to", "Output format (one of: ynab, lunchmoney, coinledger, cointracker, koinly)")
 	flag.Var(&since, "since", "Include transactions since this date")
 
 	flag.Usage = func() {
@@ -37,6 +38,7 @@ func init() {
 		flag.Usage()
 		os.Exit(1)
 	}
+
 	if inFormat.String() == "" {
 		fmt.Println("Input format not specified, defaulting to checking.")
 		_ = inFormat.Set("checking")
@@ -45,6 +47,11 @@ func init() {
 		fmt.Println("Output format is required. Use -to flag to specify.")
 		flag.Usage()
 		os.Exit(1)
+	}
+
+	if slices.Contains([]string{"coinledger", "cointracker", "koinly"}, outFormat.String()) && inFormat.String() != "bitcoin" {
+		fmt.Println("Tax Ledger format is not supported for non-bitcoin accounts")
+		return
 	}
 }
 
@@ -63,13 +70,8 @@ func main() {
 	}
 	defer file.Close()
 
+	btctxns := []FoldBitcoin{}
 	txns := []Transaction{}
-	ledger := []CoinLedger{}
-
-	if inFormat.String() != "bitcoin" && outFormat.String() == "coinledger" {
-		fmt.Println("CoinLedger format is not supported for non-bitcoin accounts")
-		return
-	}
 
 	switch inFormat.String() {
 	case "bitcoin":
@@ -103,9 +105,9 @@ func main() {
 				continue
 			}
 			txns = append(txns, t)
-			ledger = append(ledger, record.ToCoinLedger())
+			btctxns = append(btctxns, record)
 		}
-	case "checking":
+	case "checking", "card":
 		csvReader, csvHeader := skipToHeader(file, FoldCard{})
 		dec, err := csvutil.NewDecoder(csvReader, csvHeader...)
 		if errors.Is(err, io.EOF) {
@@ -145,11 +147,39 @@ func main() {
 	switch outFormat.String() {
 	case "coinledger":
 		fmt.Println("Processing with CoinLedger format...")
-		if err := writeCSV(outFileName, ledger); err != nil {
+		outData := []CoinLedger{}
+		for _, t := range btctxns {
+			outData = append(outData, t.ToCoinLedger())
+		}
+
+		if err := writeCSV(outFileName, outData); err != nil {
+			fmt.Println("Error writing to file:", err)
+			return
+		}
+	case "cointracker":
+		fmt.Println("Processing with CoinTracker format...")
+		outData := []CoinTracker{}
+		for _, t := range btctxns {
+			outData = append(outData, t.ToCoinTracker())
+		}
+
+		if err := writeCSV(outFileName, outData); err != nil {
+			fmt.Println("Error writing to file:", err)
+			return
+		}
+	case "koinly":
+		fmt.Println("Processing with Koinly format...")
+		outData := []Koinly{}
+		for _, t := range btctxns {
+			outData = append(outData, t.ToKoinly())
+		}
+
+		if err := writeCSV(outFileName, outData); err != nil {
 			fmt.Println("Error writing to file:", err)
 			return
 		}
 	case "lunchmoney":
+		fmt.Println("Processing with Lunch Money format...")
 		outData := []LunchMoney{}
 		for _, t := range txns {
 			outData = append(outData, LunchMoney{
@@ -162,12 +192,12 @@ func main() {
 			})
 		}
 
-		fmt.Println("Processing with Lunch Money format...")
 		if err := writeCSV(outFileName, outData); err != nil {
 			fmt.Println("Error writing to file:", err)
 			return
 		}
 	case "ynab":
+		fmt.Println("Processing with YNAB format...")
 		outData := []YNAB{}
 		for _, t := range txns {
 			outData = append(outData, YNAB{
@@ -177,7 +207,7 @@ func main() {
 				Amount: t.Amount,
 			})
 		}
-		fmt.Println("Processing with YNAB format...")
+
 		if err := writeCSV(outFileName, outData); err != nil {
 			fmt.Printf("Error writing to file: %v\n", err)
 			return
