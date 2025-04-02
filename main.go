@@ -9,15 +9,18 @@ import (
 	"log"
 	"os"
 	"slices"
+	"time"
 
 	"github.com/jszwec/csvutil"
 )
 
 var (
-	dryRun    bool
-	since     dateValue
-	inFormat  inputFormat
-	outFormat outputFormat
+	dryRun     bool
+	since      dateValue
+	inFormat   inputFormat
+	outFormat  outputFormat
+	oldestDate time.Time
+	newestDate time.Time
 )
 
 func init() {
@@ -70,6 +73,8 @@ func main() {
 	}
 	defer file.Close()
 
+	oldestDate = time.Now().Add(time.Hour * 24 * 365)
+	newestDate = time.Time{}
 	btctxns := []FoldBitcoin{}
 	txns := []Transaction{}
 
@@ -98,14 +103,24 @@ func main() {
 			if record.DateUTC.Before(since.Time) {
 				continue
 			}
-
-			t, e := record.Transaction()
-			if e != nil {
-				fmt.Printf("Error converting to budget transaction: %v\n", e)
-				continue
+			if record.DateUTC.Before(oldestDate) {
+				oldestDate = record.DateUTC.Time
 			}
-			txns = append(txns, t)
-			btctxns = append(btctxns, record)
+			if record.DateUTC.After(newestDate) {
+				newestDate = record.DateUTC.Time
+			}
+
+			switch outFormat.String() {
+			case "ynab", "lunchmoney":
+				t, e := record.Transaction()
+				if e != nil {
+					fmt.Printf("Error converting to budget transaction: %v\n", e)
+					continue
+				}
+				txns = append(txns, t)
+			case "coinledger", "cointracker", "koinly":
+				btctxns = append(btctxns, record)
+			}
 		}
 	case "checking", "card":
 		csvReader, csvHeader := skipToHeader(file, FoldCard{})
@@ -131,6 +146,12 @@ func main() {
 			if record.SettlementDate.Before(since.Time) {
 				continue
 			}
+			if record.SettlementDate.Before(oldestDate) {
+				oldestDate = record.SettlementDate.Time
+			}
+			if record.SettlementDate.After(newestDate) {
+				newestDate = record.SettlementDate.Time
+			}
 
 			date := record.SettlementDate.Time.Local()
 			payee := record.Description
@@ -143,7 +164,7 @@ func main() {
 	}
 
 	// Create a new CSV file to write the output
-	outFileName := getFilename(txns, inFormat, outFormat)
+	outFileName := getFilename(oldestDate, newestDate, inFormat, outFormat)
 	switch outFormat.String() {
 	case "coinledger":
 		fmt.Println("Processing with CoinLedger format...")

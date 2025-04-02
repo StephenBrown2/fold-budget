@@ -14,18 +14,7 @@ type Transaction struct {
 	Tags       []string
 }
 
-func getFilename(data []Transaction, from inputFormat, to outputFormat) string {
-	oldestDate := time.Now().Add(time.Hour * 24 * 365)
-	newestDate := time.Time{}
-	// Iterate over the records to find the oldest and newest dates
-	for _, t := range data {
-		if t.Date.Before(oldestDate) {
-			oldestDate = t.Date
-		}
-		if t.Date.After(newestDate) {
-			newestDate = t.Date
-		}
-	}
+func getFilename(oldestDate, newestDate time.Time, from inputFormat, to outputFormat) string {
 	if newestDate.IsZero() {
 		fmt.Println("Newest date is zero, using current date")
 		newestDate = time.Now()

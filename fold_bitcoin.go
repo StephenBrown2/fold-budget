@@ -52,7 +52,7 @@ func (d *foldUTC) String() string {
 	return d.Time.Format(time.RFC3339)
 }
 
-func (record FoldBitcoin) USDPerCoin() (float64, error) {
+func (record *FoldBitcoin) USDPerCoin() (float64, error) {
 	price := record.PricePerCoinUSD.float64
 	if price == 0 {
 		var priceErr error
@@ -60,6 +60,7 @@ func (record FoldBitcoin) USDPerCoin() (float64, error) {
 		if priceErr != nil {
 			return 0, fmt.Errorf("error getting historical price: %w", priceErr)
 		}
+		record.PricePerCoinUSD = optFloat{price}
 	}
 	return price, nil
 }
