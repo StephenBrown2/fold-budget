@@ -61,7 +61,7 @@ func init() {
 		os.Exit(1)
 	}
 
-	if slices.Contains([]string{"coinledger", "cointracker", "koinly"}, outFormat.String()) && inFormat.String() != "bitcoin" {
+	if slices.Contains(taxFormats, outFormat.String()) && inFormat.String() != "bitcoin" {
 		fmt.Println("Tax Ledger format is not supported for non-bitcoin accounts")
 		os.Exit(1)
 	}
