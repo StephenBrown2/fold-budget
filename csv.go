@@ -18,7 +18,6 @@ func skipToHeader(file *os.File, headerStruct any) (*csv.Reader, []string) {
 	}
 	reader := csv.NewReader(file)
 	reader.FieldsPerRecord = len(csvHeader)
-	slices.Sort(csvHeader)
 
 	fmt.Printf("Checking for header: %q\n", csvHeader)
 	for {
@@ -29,7 +28,7 @@ func skipToHeader(file *os.File, headerStruct any) (*csv.Reader, []string) {
 			}
 			continue
 		}
-		slices.Sort(record)
+
 		if slices.Equal(record, csvHeader) {
 			break
 		}
