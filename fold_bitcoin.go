@@ -106,12 +106,71 @@ func (record FoldBitcoin) Transaction() (Transaction, error) {
 	}, nil
 }
 
-func (record FoldBitcoin) ToCoinLedger() CoinLedger {
-	sent := math.Abs(record.SubtotalUSD.float64)
-	received := math.Abs(record.AmountBTC)
-	assetSent := "USD"
-	assetReceived := "BTC"
+func (record FoldBitcoin) TaxRecord() TaxRecord {
+	var sent, received float64
+	var assetSent, assetReceived string
 
+	switch record.TransactionType {
+	case "Purchase":
+		sent = math.Abs(record.SubtotalUSD.float64)
+		received = math.Abs(record.AmountBTC)
+		assetSent = "USD"
+		assetReceived = "BTC"
+	case "Deposit":
+		sent = 0
+		received = math.Abs(record.AmountBTC)
+		assetReceived = "BTC"
+	case "Sale":
+		sent = math.Abs(record.AmountBTC)
+		received = math.Abs(record.SubtotalUSD.float64)
+		assetSent = "BTC"
+		assetReceived = "USD"
+	case "Withdrawal":
+		sent = math.Abs(record.AmountBTC)
+		received = 0
+		assetSent = "BTC"
+	}
+
+	var amountReceived string
+	switch assetReceived {
+	case "BTC":
+		amountReceived = fmt.Sprintf("%0.8f", received)
+	case "USD":
+		amountReceived = fmt.Sprintf("%0.2f", received)
+	}
+
+	var amountSent string
+	switch assetSent {
+	case "BTC":
+		amountSent = fmt.Sprintf("%0.8f", sent)
+	case "USD":
+		amountSent = fmt.Sprintf("%0.2f", sent)
+	}
+
+	var feeAsset string
+	if record.FeeUSD.float64 > 0 {
+		feeAsset = "USD"
+	}
+
+	price, priceErr := record.USDPerCoin()
+	if priceErr != nil {
+		fmt.Println("error getting historical BTC price:", priceErr)
+	}
+
+	return TaxRecord{
+		DateTime:       record.DateUTC.Time,
+		AssetSent:      assetSent,
+		AmountSent:     amountSent,
+		AssetReceived:  assetReceived,
+		AmountReceived: amountReceived,
+		FeeAsset:       feeAsset,
+		FeeAmount:      record.FeeUSD.float64,
+		Description:    fmt.Sprintf("%s, FX rate: %.2f", record.Description, price),
+		TxHash:         record.TransactionID,
+	}
+}
+
+func (record FoldBitcoin) ToCoinLedger() CoinLedger {
 	var txType CoinLedgerTag
 	switch record.TransactionType {
 	case "Purchase", "Sale":
@@ -120,10 +179,6 @@ func (record FoldBitcoin) ToCoinLedger() CoinLedger {
 		txType = CoinLedgerDeposit
 	case "Withdrawal":
 		txType = CoinLedgerWithdrawal
-		sent = math.Abs(record.AmountBTC)
-		received = math.Abs(record.SubtotalUSD.float64)
-		assetSent = "BTC"
-		assetReceived = "USD"
 	default:
 		fmt.Println("Unknown transaction type:", record.TransactionType)
 		if record.AmountBTC > 0 {
@@ -135,114 +190,57 @@ func (record FoldBitcoin) ToCoinLedger() CoinLedger {
 		}
 	}
 
-	price, priceErr := record.USDPerCoin()
-	if priceErr != nil {
-		fmt.Printf("error getting historical BTC price: %s\n", priceErr)
-	}
-
-	var amountReceived, amountSent string
-	switch assetReceived {
-	case "BTC":
-		amountReceived = fmt.Sprintf("%0.8f", received)
-		amountSent = fmt.Sprintf("%0.2f", sent)
-	case "USD":
-		amountReceived = fmt.Sprintf("%0.2f", received)
-		amountSent = fmt.Sprintf("%0.8f", sent)
-	}
-
+	tr := record.TaxRecord()
 	return CoinLedger{
-		DateUTC:        coinLedgerDate{record.DateUTC.Time},
+		DateUTC:        coinLedgerDate{tr.DateTime},
 		Platform:       "Fold",
-		AssetSent:      assetSent,
-		AmountSent:     amountSent,
-		AssetReceived:  assetReceived,
-		AmountReceived: amountReceived,
-		FeeCurrency:    "USD",
-		FeeAmount:      record.FeeUSD.float64,
+		AssetSent:      tr.AssetSent,
+		AmountSent:     tr.AmountSent,
+		AssetReceived:  tr.AssetReceived,
+		AmountReceived: tr.AmountReceived,
+		FeeCurrency:    tr.FeeAsset,
+		FeeAmount:      tr.FeeAmount,
 		Type:           txType,
-		Description:    fmt.Sprintf("%s, FX rate: %.2f", record.Description, price),
-		TxHash:         record.TransactionID,
+		Description:    tr.Description,
+		TxHash:         tr.TxHash,
 	}
 }
 
 func (record FoldBitcoin) ToCoinTracker() CoinTracker {
-	sent := math.Abs(record.SubtotalUSD.float64)
-	received := math.Abs(record.AmountBTC)
-	assetSent := "USD"
-	assetReceived := "BTC"
-
-	switch record.TransactionType {
-	case "Withdrawal", "Sale":
-		sent = math.Abs(record.AmountBTC)
-		received = math.Abs(record.SubtotalUSD.float64)
-		assetSent = "BTC"
-		assetReceived = "USD"
-	}
-
-	var amountReceived, amountSent string
-	switch assetReceived {
-	case "BTC":
-		amountReceived = fmt.Sprintf("%0.8f", received)
-		amountSent = fmt.Sprintf("%0.2f", sent)
-	case "USD":
-		amountReceived = fmt.Sprintf("%0.2f", received)
-		amountSent = fmt.Sprintf("%0.8f", sent)
-	}
-
+	tr := record.TaxRecord()
 	return CoinTracker{
-		Date:             coinTrackerDate{record.DateUTC.Time},
-		ReceivedQuantity: amountReceived,
-		ReceivedCurrency: assetReceived,
-		SentQuantity:     amountSent,
-		SentCurrency:     assetSent,
-		FeeCurrency:      "USD",
-		FeeAmount:        record.FeeUSD.float64,
+		Date:             coinTrackerDate{tr.DateTime},
+		ReceivedQuantity: tr.AmountReceived,
+		ReceivedCurrency: tr.AssetReceived,
+		SentQuantity:     tr.AmountSent,
+		SentCurrency:     tr.AssetSent,
+		FeeCurrency:      tr.FeeAsset,
+		FeeAmount:        tr.FeeAmount,
 	}
 }
 
 func (record FoldBitcoin) ToKoinly() Koinly {
-	sent := math.Abs(record.SubtotalUSD.float64)
-	received := math.Abs(record.AmountBTC)
-	assetSent := "USD"
-	assetReceived := "BTC"
-
-	switch record.TransactionType {
-	case "Withdrawal", "Sale":
-		sent = math.Abs(record.AmountBTC)
-		received = math.Abs(record.SubtotalUSD.float64)
-		assetSent = "BTC"
-		assetReceived = "USD"
-	}
-
-	price, priceErr := record.USDPerCoin()
-	if priceErr != nil {
-		fmt.Printf("error getting historical BTC price: %s\n", priceErr)
-	}
-
-	var networth float64
-	var amountReceived, amountSent string
-	switch assetReceived {
+	tr := record.TaxRecord()
+	price := record.PricePerCoinUSD.float64
+	networth := float64(0)
+	switch tr.AssetReceived {
 	case "BTC":
-		amountReceived = fmt.Sprintf("%0.8f", received)
-		amountSent = fmt.Sprintf("%0.2f", sent)
 		networth = price * math.Abs(record.AmountBTC)
 	case "USD":
-		amountReceived = fmt.Sprintf("%0.2f", received)
-		amountSent = fmt.Sprintf("%0.8f", sent)
 		networth = math.Abs(record.SubtotalUSD.float64)
 	}
 
 	return Koinly{
-		Date:             koinlyDate{record.DateUTC.Time},
-		SentAmount:       amountSent,
-		SentCurrency:     assetSent,
-		ReceivedAmount:   amountReceived,
-		ReceivedCurrency: assetReceived,
-		FeeCurrency:      "USD",
-		FeeAmount:        record.FeeUSD.float64,
+		Date:             koinlyDate{tr.DateTime},
+		SentAmount:       tr.AmountSent,
+		SentCurrency:     tr.AssetSent,
+		ReceivedAmount:   tr.AmountReceived,
+		ReceivedCurrency: tr.AssetReceived,
+		FeeCurrency:      tr.FeeAsset,
+		FeeAmount:        tr.FeeAmount,
 		NetWorthAmount:   math.Round(networth*100) / 100,
 		NetWorthCurrency: "USD",
-		Description:      fmt.Sprintf("%s, FX rate: %.2f", record.Description, price),
-		TxHash:           record.TransactionID,
+		Description:      tr.Description,
+		TxHash:           tr.TxHash,
 	}
 }
