@@ -15,13 +15,9 @@ func (d *dateValue) String() string {
 	return d.Time.Format(time.DateOnly)
 }
 
-func (d *dateValue) Set(value string) error {
-	t, err := time.Parse(time.DateOnly, value)
-	if err != nil {
-		return err
-	}
-	d.Time = t
-	return nil
+func (d *dateValue) Set(value string) (err error) {
+	d.Time, err = time.Parse(time.DateOnly, value)
+	return err
 }
 
 type enumFlag struct {
