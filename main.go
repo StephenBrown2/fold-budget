@@ -18,7 +18,7 @@ import (
 var (
 	dryRun        bool
 	since         dateValue
-	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "card"}, "checking")
+	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "debit"}, "checking")
 	budgetFormats = []string{"ynab", "lunchmoney"}
 	taxFormats    = []string{"coinledger", "cointracker", "koinly"}
 	outFormat     = newEnumFlag(slices.Concat(budgetFormats, taxFormats), "ynab")
@@ -37,7 +37,7 @@ func init() {
 		fmt.Fprintf(w, "\nUsage: %s [flags] <csv-file>\n", os.Args[0])
 		flag.PrintDefaults()
 		fmt.Fprintf(w, "\nNOTE:\n")
-		fmt.Fprintf(w, "  The \"card\" input format is an alias for \"checking\".\n\n")
+		fmt.Fprintf(w, "  The \"debit\" input format is an alias for \"checking\".\n\n")
 		fmt.Fprintf(w, "  The following output formats are available for all input formats:\n")
 		fmt.Fprintf(w, "\t%s\n\n", strings.Join(budgetFormats, ", "))
 		fmt.Fprintf(w, "  The following output formats are only available for bitcoin CSVs:\n")
@@ -127,11 +127,11 @@ func main() {
 				btctxns = append(btctxns, record)
 			}
 		}
-	case "checking", "card":
+	case "checking", "debit":
 		csvReader, csvHeader := skipToHeader(file, FoldCard{})
 		dec, err := csvutil.NewDecoder(csvReader, csvHeader...)
 		if errors.Is(err, io.EOF) {
-			fmt.Println("Reached end of file early. Is it a card statement?")
+			fmt.Println("Reached end of file early. Is it a debit card statement?")
 			return
 		} else if err != nil {
 			log.Fatal(err)
