@@ -1,14 +1,17 @@
 package main
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type LunchMoney struct {
-	Date       lmDate   `csv:"date"`
-	Payee      string   `csv:"payee"`
-	Notes      string   `csv:"notes"`
-	Amount     float64  `csv:"amount"`
-	Categories []string `csv:"categories,omitempty"`
-	Tags       []string `csv:"tags,omitempty"`
+	Date       lmDate  `csv:"date"`
+	Payee      string  `csv:"payee"`
+	Notes      string  `csv:"notes"`
+	Amount     string  `csv:"amount"`
+	Categories Strings `csv:"categories,omitempty"`
+	Tags       Strings `csv:"tags,omitempty"`
 }
 
 type lmDate struct {
@@ -30,4 +33,22 @@ func (d *lmDate) MarshalCSV() ([]byte, error) {
 
 func (d *lmDate) String() string {
 	return d.Time.Format(time.DateOnly)
+}
+
+type Strings []string
+
+func (s Strings) UnmarshalCSV(data []byte) error {
+	parts := strings.Split(string(data), ",")
+	for _, part := range parts {
+		s = append(s, strings.TrimSpace(part))
+	}
+	return nil
+}
+
+func (s Strings) MarshalCSV() ([]byte, error) {
+	return []byte(strings.Join(s, ",")), nil // strings.Join takes []string but it will also accept Strings
+}
+
+func (s Strings) String() string {
+	return strings.Join(s, ", ")
 }

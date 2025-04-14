@@ -25,7 +25,7 @@ func getFilename(oldestDate, newestDate time.Time, from, to fmt.Stringer) string
 	}
 	if oldestDate.Equal(newestDate) {
 		fmt.Println("Oldest and newest dates are the same, using only one date for filename")
-		return fmt.Sprintf("fold_%s_to_%s_%s.csv", from, to, oldestDate.Format(time.DateOnly))
+		return fmt.Sprintf("fold_%s_to_%s_as_%s_%s.csv", from, to, unit, oldestDate.Format(time.DateOnly))
 	}
-	return fmt.Sprintf("fold_%s_to_%s_%s_%s.csv", from, to, oldestDate.Format(time.DateOnly), newestDate.Format(time.DateOnly))
+	return fmt.Sprintf("fold_%s_to_%s_as_%s_%s_%s.csv", from, to, unit, oldestDate.Format(time.DateOnly), newestDate.Format(time.DateOnly))
 }

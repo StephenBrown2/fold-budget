@@ -65,21 +65,23 @@ func (record *FoldBitcoin) USDPerCoin() (float64, error) {
 	return price, nil
 }
 
-func (record FoldBitcoin) Transaction() (Transaction, error) {
+func (record FoldBitcoin) Transaction(unit string) (Transaction, error) {
 	date := record.DateUTC.Time.Local()
 
 	payee := record.Description
-	switch payee {
-	case "Direct to Bitcoin Purchase":
-		payee = "Fold Direct to Bitcoin Purchase"
-	case "Push to Card":
-		payee = "Fold Push to Card"
-	case "Purchase":
-		payee = "Fold Bitcoin Purchase"
-	case "Auto-Stack Purchase":
-		payee = "Fold Auto-Stack Bitcoin Purchase"
-	case "Receive":
-		payee = "Fold Receive Bitcoin"
+	if unit == "usd" {
+		switch payee {
+		case "Direct to Bitcoin Purchase":
+			payee = "Fold Direct to Bitcoin Purchase"
+		case "Push to Card":
+			payee = "Fold Push to Card"
+		case "Purchase":
+			payee = "Fold Bitcoin Purchase"
+		case "Auto-Stack Purchase":
+			payee = "Fold Auto-Stack Bitcoin Purchase"
+		case "Receive":
+			payee = "Fold Receive Bitcoin"
+		}
 	}
 
 	amount := record.SubtotalUSD.float64 * -1
@@ -97,6 +99,13 @@ func (record FoldBitcoin) Transaction() (Transaction, error) {
 		memo.WriteString(fmt.Sprintf(" Transaction ID: %s", record.TransactionID))
 	}
 	memo.WriteString(fmt.Sprintf(" @ %s", date.Format(time.RFC822)))
+
+	switch unit {
+	case "btc":
+		amount = record.AmountBTC
+	case "sats":
+		amount = math.Round(record.AmountBTC * 100_000_000)
+	}
 
 	return Transaction{
 		Date:   date,

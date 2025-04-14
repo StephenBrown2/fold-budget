@@ -18,6 +18,7 @@ import (
 var (
 	dryRun        bool
 	since         dateValue
+	unit          = newEnumFlag([]string{"usd", "btc", "sats"}, "usd")
 	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "debit"}, "checking")
 	budgetFormats = []string{"ynab", "lunchmoney"}
 	taxFormats    = []string{"coinledger", "cointracker", "koinly"}
@@ -31,6 +32,7 @@ func init() {
 	flag.Var(inFormat, "from", inFormat.Usage("Input format"))
 	flag.Var(outFormat, "to", outFormat.Usage("Output format"))
 	flag.Var(&since, "since", "Include transactions since this date")
+	flag.Var(unit, "unit", unit.Usage("Output currency unit"))
 
 	flag.Usage = func() {
 		w := flag.CommandLine.Output()
@@ -63,6 +65,21 @@ func init() {
 
 	if slices.Contains(taxFormats, outFormat.String()) && inFormat.String() != "bitcoin" {
 		fmt.Println("Tax Ledger format is not supported for non-bitcoin accounts")
+		os.Exit(1)
+	}
+
+	if unit.String() != "usd" && inFormat.String() != "bitcoin" {
+		fmt.Println("Bitcoin output unit is not supported for non-bitcoin accounts")
+		os.Exit(1)
+	}
+
+	if outFormat.String() == "ynab" && unit.String() == "btc" {
+		fmt.Println("YNAB format does not support BTC output unit")
+		os.Exit(1)
+	}
+
+	if outFormat.String() == "lunchmoney" && unit.String() == "sats" {
+		fmt.Println("Lunch Money format does not support sats output unit")
 		os.Exit(1)
 	}
 }
@@ -117,7 +134,7 @@ func main() {
 
 			switch outFormat.String() {
 			case "ynab", "lunchmoney":
-				t, e := record.Transaction()
+				t, e := record.Transaction(unit.String())
 				if e != nil {
 					fmt.Printf("Error converting to budget transaction: %v\n", e)
 					continue
@@ -208,11 +225,20 @@ func main() {
 		fmt.Println("Processing with Lunch Money format...")
 		outData := []LunchMoney{}
 		for _, t := range txns {
+			var amt string
+			switch unit.String() {
+			case "btc":
+				amt = fmt.Sprintf("%.8f", t.Amount)
+			case "sats":
+				amt = fmt.Sprintf("%.0f", t.Amount)
+			case "usd":
+				amt = fmt.Sprintf("%.2f", t.Amount)
+			}
 			outData = append(outData, LunchMoney{
 				Date:       lmDate{t.Date},
 				Payee:      t.Payee,
 				Notes:      t.Memo,
-				Amount:     t.Amount,
+				Amount:     amt,
 				Categories: t.Categories,
 				Tags:       t.Tags,
 			})
@@ -226,11 +252,20 @@ func main() {
 		fmt.Println("Processing with YNAB format...")
 		outData := []YNAB{}
 		for _, t := range txns {
+			var amt string
+			switch unit.String() {
+			case "btc":
+				amt = fmt.Sprintf("%.8f", t.Amount)
+			case "sats":
+				amt = fmt.Sprintf("%.0f", t.Amount)
+			case "usd":
+				amt = fmt.Sprintf("%.2f", t.Amount)
+			}
 			outData = append(outData, YNAB{
 				Date:   ynabDate{t.Date},
 				Payee:  t.Payee,
 				Memo:   t.Memo,
-				Amount: t.Amount,
+				Amount: amt,
 			})
 		}
 

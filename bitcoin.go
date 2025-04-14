@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -37,4 +38,33 @@ func getHistoricalPrice(date time.Time) (float64, error) {
 	}
 
 	return btc.Prices[0].USD, nil
+}
+
+func getCurrentPrice() (float64, error) {
+	fmt.Printf("Getting current price for: %s\n", time.Now().Local().Format(time.RFC1123))
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://pricing.bitcoin.block.xyz/current-price", nil)
+	if err != nil {
+		return 0, err
+	}
+	response, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, err
+	}
+	defer response.Body.Close()
+
+	type BlockPrice struct {
+		Amount                         string `json:"amount"`
+		LastUpdatedAtInUTCEpochSeconds string `json:"last_updated_at_in_utc_epoch_seconds"`
+		Currency                       string `json:"currency"`
+		Version                        string `json:"version"`
+		Base                           string `json:"base"`
+	}
+	var btc BlockPrice
+	if err := json.NewDecoder(response.Body).Decode(&btc); err != nil {
+		return 0, err
+	}
+
+	return strconv.ParseFloat(btc.Amount, 64)
 }

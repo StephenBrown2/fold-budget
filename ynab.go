@@ -6,7 +6,7 @@ type YNAB struct {
 	Date   ynabDate
 	Payee  string
 	Memo   string
-	Amount float64
+	Amount string
 }
 
 type ynabDate struct {
