@@ -77,6 +77,8 @@ func (record FoldBitcoin) Transaction(unit string) (Transaction, error) {
 			payee = "Fold Push to Card"
 		case "Purchase":
 			payee = "Fold Bitcoin Purchase"
+		case "Sale":
+			payee = "Fold Bitcoin Sale"
 		case "Auto-Stack Purchase":
 			payee = "Fold Auto-Stack Bitcoin Purchase"
 		case "Receive":
