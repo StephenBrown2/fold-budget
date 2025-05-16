@@ -21,7 +21,7 @@ var (
 	unit          = newEnumFlag([]string{"usd", "btc", "sats"}, "usd")
 	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "debit"}, "checking")
 	budgetFormats = []string{"ynab", "lunchmoney"}
-	taxFormats    = []string{"coinledger", "cointracker", "koinly"}
+	taxFormats    = []string{"coinledger", "cointracker", "koinly", "irr"}
 	outFormat     = newEnumFlag(slices.Concat(budgetFormats, taxFormats), "ynab")
 	oldestDate    time.Time
 	newestDate    time.Time
@@ -140,7 +140,7 @@ func main() {
 					continue
 				}
 				txns = append(txns, t)
-			case "coinledger", "cointracker", "koinly":
+			case "coinledger", "cointracker", "koinly", "irr":
 				btctxns = append(btctxns, record)
 			}
 		}
@@ -188,6 +188,28 @@ func main() {
 	// Create a new CSV file to write the output
 	outFileName := getFilename(oldestDate, newestDate, inFormat, outFormat)
 	switch outFormat.String() {
+	case "irr":
+		fmt.Println("Processing IRR...")
+		costbasis, totalbtc := 0.0, 0.0
+		for _, t := range btctxns {
+			if t.PricePerCoinUSD.float64 != 0 {
+				costbasis += t.AmountBTC * t.PricePerCoinUSD.float64
+				totalbtc += t.AmountBTC
+			}
+		}
+		fmt.Printf("Total cost basis: $%.2f\n", costbasis)
+		fmt.Printf("Total BTC: %.8f\n", totalbtc)
+		currentPrice, err := getCurrentPrice()
+		if err != nil {
+			fmt.Printf("Error getting current price: %v\n", err)
+			return
+		}
+		currentvalue := totalbtc * currentPrice
+		profit := currentvalue - costbasis
+		fmt.Printf("Current price: $%.2f\n", currentPrice)
+		fmt.Printf("Total USD: $%.2f\n", currentvalue)
+		fmt.Printf("Total profit: $%.2f\n", profit)
+		fmt.Printf("Total profit percentage: %.2f%%\n", profit/costbasis*100)
 	case "coinledger":
 		fmt.Println("Processing with CoinLedger format...")
 		outData := []CoinLedger{}
