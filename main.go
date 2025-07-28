@@ -19,7 +19,7 @@ var (
 	dryRun        bool
 	since         dateValue
 	unit          = newEnumFlag([]string{"usd", "btc", "sats"}, "usd")
-	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "debit"}, "checking")
+	inFormat      = newEnumFlag([]string{"bitcoin", "checking", "debit", "gemini"}, "checking")
 	budgetFormats = []string{"ynab", "lunchmoney"}
 	taxFormats    = []string{"coinledger", "cointracker", "koinly", "irr"}
 	outFormat     = newEnumFlag(slices.Concat(budgetFormats, taxFormats), "ynab")
@@ -181,6 +181,45 @@ func main() {
 				Date:   date,
 				Payee:  payee,
 				Amount: record.Amount,
+			})
+		}
+	case "gemini":
+		csvReader, csvHeader := skipToHeader(file, GeminiCard{})
+		dec, err := csvutil.NewDecoder(csvReader, csvHeader...)
+		if errors.Is(err, io.EOF) {
+			fmt.Println("Reached end of file early. Is it a Gemini card statement?")
+			return
+		} else if err != nil {
+			log.Fatal(err)
+		}
+		for {
+			var record GeminiCard
+			if err := dec.Decode(&record); errors.Is(err, io.EOF) {
+				break
+			} else if errors.Is(err, csv.ErrFieldCount) {
+				fmt.Println("Skipping", err.Error())
+				continue
+			} else if err != nil {
+				fmt.Printf("Error decoding: %v\n", err)
+				continue
+			}
+
+			if record.PostDate.Before(since.Time) {
+				continue
+			}
+			if record.PostDate.Before(oldestDate) {
+				oldestDate = record.PostDate.Time
+			}
+			if record.PostDate.After(newestDate) {
+				newestDate = record.PostDate.Time
+			}
+
+			date := record.PostDate.Time.Local()
+			payee := record.Description
+			txns = append(txns, Transaction{
+				Date:   date,
+				Payee:  payee,
+				Amount: -record.Amount,
 			})
 		}
 	}
