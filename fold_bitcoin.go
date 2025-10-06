@@ -45,11 +45,11 @@ func (d *foldUTC) UnmarshalCSV(data []byte) (err error) {
 }
 
 func (d *foldUTC) MarshalCSV() ([]byte, error) {
-	return []byte(d.Time.Format(time.RFC3339)), nil
+	return []byte(d.Format(time.RFC3339)), nil
 }
 
 func (d *foldUTC) String() string {
-	return d.Time.Format(time.RFC3339)
+	return d.Format(time.RFC3339)
 }
 
 func (record *FoldBitcoin) USDPerCoin() (float64, error) {
@@ -66,7 +66,7 @@ func (record *FoldBitcoin) USDPerCoin() (float64, error) {
 }
 
 func (record FoldBitcoin) Transaction(unit string) (Transaction, error) {
-	date := record.DateUTC.Time.Local()
+	date := record.DateUTC.Local()
 
 	payee := record.Description
 	if unit == "usd" {

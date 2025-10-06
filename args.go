@@ -12,7 +12,7 @@ type dateValue struct {
 }
 
 func (d *dateValue) String() string {
-	return d.Time.Format(time.DateOnly)
+	return d.Format(time.DateOnly)
 }
 
 func (d *dateValue) Set(value string) (err error) {

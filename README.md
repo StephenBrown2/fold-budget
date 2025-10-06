@@ -14,81 +14,111 @@ supported:
 - CoinTracker
 - Koinly
 
+## Installation
+
 To install, make sure you have [Go](https://go.dev/dl/) installed, then run:
 
 ```sh
 go install github.com/StephenBrown2/fold-budget@latest
 ```
 
-Then, you should be able to run it:
+## Usage
+
+fold-budget has a traditional command-line interface:
 
 ```sh
-$ fold-budget -help
-Usage: fold-budget [flags] <csv-file>
-  -dry-run
-        Dry run, don't write to file
-  -from value
-        Input format (one of: bitcoin, checking, card) (default checking)
-  -since value
-        Include transactions since this date
-  -to value
-        Output format (one of: ynab, lunchmoney, coinledger, cointracker, koinly) (default ynab)
-
-NOTE:
-  The "card" input format is an alias for "checking".
-
-  The following output formats are available for all input formats:
-        ynab, lunchmoney
-
-  The following output formats are only available for bitcoin CSVs:
-        coinledger, cointracker, koinly
+fold-budget [flags] <csv-file>
 ```
 
-Once you have a downloaded CSV file, you can choose your input and output
-formats, and `fold-budget` will write a new file based on those and the start
-and end dates for the included transactions:
+### Flags
+
+- `-dry-run`: Dry run, don't write to file
+- `-from value`: Input format (bitcoin, checking, debit, gemini) - default: checking
+- `-to value`: Output format (ynab, lunchmoney, coinledger, cointracker, koinly, irr) - default: ynab
+- `-since value`: Include transactions since this date (YYYY-MM-DD format)
+- `-unit value`: Output currency unit (usd, btc, sats) - default: usd
+- `-tui`: Use interactive TUI mode
+
+### Examples
+
+Convert a bitcoin CSV to Koinly format:
+
+```sh
+fold-budget -from=bitcoin -to=koinly ~/Downloads/fold-bitcoin-transaction-history-2025-03-31.csv
+```
+
+Convert a checking account CSV to YNAB format:
+
+```sh
+fold-budget -from=checking -to=ynab ~/Downloads/statement.csv
+```
+
+## Supported Formats
+
+### Input Formats
+
+- **bitcoin**: Fold Bitcoin transaction history
+- **checking/debit**: Fold checking account transactions
+- **gemini**: Gemini card transactions
+
+### Output Formats
+
+**Available for all input formats:**
+
+- **ynab**: You Need A Budget format
+- **lunchmoney**: Lunch Money budgeting app format
+
+**Available only for bitcoin CSVs:**
+
+- **coinledger**: CoinLedger tax reporting format
+- **cointracker**: CoinTracker tax reporting format
+- **koinly**: Koinly tax reporting format
+- **irr**: Internal Rate of Return calculation (console output only)
+
+### Currency Units
+
+- **usd**: US Dollars (available for all formats)
+- **btc**: Bitcoin (bitcoin input only)
+- **sats**: Satoshis (bitcoin input only, not supported by Lunch Money)
+
+## Format Compatibility
+
+| Output Format | USD | BTC | Sats |
+|--------------|-----|-----|------|
+| YNAB         | ✅  | ❌  | ✅   |
+| Lunch Money  | ✅  | ✅  | ❌   |
+| CoinLedger   | ✅  | ✅  | ✅   |
+| CoinTracker  | ✅  | ✅  | ✅   |
+| Koinly       | ✅  | ✅  | ✅   |
+
+## Usage Examples
+
+Bitcoin transactions to Koinly:
 
 ```sh
 $ fold-budget -from=bitcoin -to=koinly ~/Downloads/fold-bitcoin-transaction-history-2025-03-31.csv
 Checking for header: ["Reference ID" "Date (UTC)" "Transaction Type" "Description" "Asset" "Amount (BTC)" "Price per Coin (USD)" "Subtotal (USD)" "Fee (USD)" "Total (USD)" "Transaction ID"]
-Skipping record on line 27: wrong number of fields
-Skipping record on line 28: wrong number of fields
 Processing with Koinly format...
-Getting historical price for: Sun, 02 Feb 2025 21:40:43 EST
-
 Output written to fold_bitcoin_to_koinly_2025-01-10_2025-03-31.csv
 ```
 
-Or for example, Card transactions:
+Checking account transactions to YNAB:
 
 ```sh
 $ fold-budget -from=checking -to=ynab ~/Downloads/statement.csv
 Checking for header: ["Transaction ID" "Settlement Date" "Description" "Amount"]
-Skipping record on line 28: wrong number of fields
-Skipping record on line 29: wrong number of fields
-Skipping record on line 30: wrong number of fields
-Skipping record on line 31: wrong number of fields
-Skipping record on line 32: wrong number of fields
-Skipping record on line 33: wrong number of fields
-Skipping record on line 34: wrong number of fields
-Skipping record on line 35: wrong number of fields
-Skipping record on line 36: wrong number of fields
-Skipping record on line 37: wrong number of fields
-Skipping record on line 38: wrong number of fields
-Skipping record on line 39: wrong number of fields
-Skipping record on line 40: wrong number of fields
-Skipping record on line 41: wrong number of fields
-Skipping record on line 42: wrong number of fields
-Skipping record on line 43: wrong number of fields
-Skipping record on line 44: wrong number of fields
 Processing with YNAB format...
-
 Output written to fold_checking_to_ynab_2025-03-01_2025-03-25.csv
 ```
 
-Several rows are skipped because Fold includes other statement information along
-with plain transaction data. These messages can safely be ignored.
+## Notes
 
+- The "debit" input format is an alias for "checking"
+- Some rows may be skipped because Fold includes statement metadata along with transaction data
+- When using bitcoin formats, the tool can fetch historical prices for transactions missing price data
+- The TUI mode provides better error handling and validation than the CLI mode
+
+## License
 
 This program is distributed in the hope that it will be useful, but WITHOUT ANY
 WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A

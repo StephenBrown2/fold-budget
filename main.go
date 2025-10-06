@@ -175,7 +175,7 @@ func main() {
 				newestDate = record.SettlementDate.Time
 			}
 
-			date := record.SettlementDate.Time.Local()
+			date := record.SettlementDate.Local()
 			payee := record.Description
 			txns = append(txns, Transaction{
 				Date:   date,
@@ -214,7 +214,7 @@ func main() {
 				newestDate = record.PostDate.Time
 			}
 
-			date := record.PostDate.Time.Local()
+			date := record.PostDate.Local()
 			payee := record.Description
 			txns = append(txns, Transaction{
 				Date:   date,

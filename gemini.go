@@ -22,9 +22,9 @@ func (d *geminiDate) UnmarshalCSV(data []byte) (err error) {
 }
 
 func (d *geminiDate) MarshalCSV() ([]byte, error) {
-	return []byte(d.Time.Format("01/02/06")), nil
+	return []byte(d.Format("01/02/06")), nil
 }
 
 func (d *geminiDate) String() string {
-	return d.Time.Format(time.DateOnly)
+	return d.Format(time.DateOnly)
 }

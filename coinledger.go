@@ -47,9 +47,9 @@ func (d *coinLedgerDate) UnmarshalCSV(data []byte) (err error) {
 }
 
 func (d *coinLedgerDate) MarshalCSV() ([]byte, error) {
-	return []byte(d.Time.Format("01-02-2006 15:04:05")), nil
+	return []byte(d.Format("01-02-2006 15:04:05")), nil
 }
 
 func (d *coinLedgerDate) String() string {
-	return d.Time.Format("01-02-2006 15:04:05")
+	return d.Format("01-02-2006 15:04:05")
 }

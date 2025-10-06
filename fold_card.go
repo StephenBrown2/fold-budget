@@ -19,9 +19,9 @@ func (d *foldDate) UnmarshalCSV(data []byte) (err error) {
 }
 
 func (d *foldDate) MarshalCSV() ([]byte, error) {
-	return []byte(d.Time.Format(time.RFC3339)), nil
+	return []byte(d.Format(time.RFC3339)), nil
 }
 
 func (d *foldDate) String() string {
-	return d.Time.Format(time.RFC3339)
+	return d.Format(time.RFC3339)
 }

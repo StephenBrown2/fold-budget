@@ -23,9 +23,9 @@ func (d *ynabDate) UnmarshalCSV(data []byte) error {
 }
 
 func (d *ynabDate) MarshalCSV() ([]byte, error) {
-	return []byte(d.Time.Format(time.DateOnly)), nil
+	return []byte(d.Format(time.DateOnly)), nil
 }
 
 func (d *ynabDate) String() string {
-	return d.Time.Format(time.DateOnly)
+	return d.Format(time.DateOnly)
 }
